@@ -14,7 +14,7 @@
 <canvas id="airChart" width="400" height="200"></canvas>
 
 <script>
-  const client = mqtt.connect("ws://broker.emqx.io:8084/mqtt");
+  const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
 
   const tempData = [];
   const humidityData = [];
@@ -93,4 +93,5 @@
 
 </body>
 </html>
+
 
