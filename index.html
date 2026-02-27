@@ -1,97 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>IoT Environmental Dashboard</title>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Select Parameters</title>
 </head>
 <body>
 
-<h2>Real-Time Environmental Monitoring</h2>
+<h2>Select Environmental Parameters</h2>
 
-<canvas id="tempChart" width="400" height="200"></canvas>
-<canvas id="humidityChart" width="400" height="200"></canvas>
-<canvas id="airChart" width="400" height="200"></canvas>
+<form action="dashboard.html" method="GET">
 
-<script>
-  const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
+  <input type="checkbox" name="temp" value="1"> Temperature<br><br>
+  <input type="checkbox" name="hum" value="1"> Humidity<br><br>
+  <input type="checkbox" name="air" value="1"> Air Quality<br><br>
 
-  const tempData = [];
-  const humidityData = [];
-  const airData = [];
-  const labels = [];
+  <button type="submit">View Dashboard</button>
 
-  function createChart(ctx, label, data, color) {
-    return new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: label,
-          data: data,
-          borderColor: color,
-          fill: false
-        }]
-      },
-      options: {
-        animation: false,
-        scales: {
-          y: { beginAtZero: true }
-        }
-      }
-    });
-  }
-
-  const tempChart = createChart(
-    document.getElementById('tempChart'),
-    "Temperature (°C)",
-    tempData,
-    "red"
-  );
-
-  const humidityChart = createChart(
-    document.getElementById('humidityChart'),
-    "Humidity (%)",
-    humidityData,
-    "blue"
-  );
-
-  const airChart = createChart(
-    document.getElementById('airChart'),
-    "Air Quality",
-    airData,
-    "green"
-  );
-
-  client.on("connect", () => {
-    console.log("Connected to MQTT");
-    client.subscribe("iot/environment/data");
-  });
-
-  client.on("message", (topic, message) => {
-    const data = JSON.parse(message.toString());
-
-    const time = new Date().toLocaleTimeString();
-    labels.push(time);
-
-    tempData.push(data.temperature);
-    humidityData.push(data.humidity);
-    airData.push(data.airQuality);
-
-    if (labels.length > 20) {
-      labels.shift();
-      tempData.shift();
-      humidityData.shift();
-      airData.shift();
-    }
-
-    tempChart.update();
-    humidityChart.update();
-    airChart.update();
-  });
-</script>
+</form>
 
 </body>
 </html>
-
-
