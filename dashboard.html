@@ -2,87 +2,172 @@
 
 <html>
 <head>
-<title>IoT Environment Monitor</title>
+<title>IoT Environment Dashboard</title>
+
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+font-family: Arial;
+text-align:center;
+background:#f4f6f7;
+}
+
+h1{
+color:#2c3e50;
+}
+
+.container{
+display:flex;
+justify-content:center;
+gap:40px;
+margin-top:20px;
+}
+
+.chartBox{
+width:400px;
+}
+
+.alert{
+color:white;
+background:red;
+padding:10px;
+margin-top:10px;
+display:none;
+font-weight:bold;
+}
+</style>
+
 </head>
 
 <body>
 
-<h2>Environment Monitoring Dashboard</h2>
+<h1>IoT Environment Monitoring</h1>
 
-<h3>Select topics to monitor:</h3>
+<h3>Select data to monitor</h3>
 
-<label>
-<input type="checkbox" id="tempCheck"> Temperature
-</label>
-<br>
+<label><input type="checkbox" id="tempCheck"> Temperature</label> <label><input type="checkbox" id="humCheck"> Humidity</label> <label><input type="checkbox" id="airCheck"> Air Quality</label>
 
-<label>
-<input type="checkbox" id="humCheck"> Humidity
-</label>
-<br>
+<div class="container">
 
-<label>
-<input type="checkbox" id="airCheck"> Air Quality
-</label>
+<div class="chartBox">
+<canvas id="tempChart"></canvas>
+<div class="alert" id="tempAlert">High Temperature Alert</div>
+</div>
 
-<h3>Live Data</h3>
+<div class="chartBox">
+<canvas id="humChart"></canvas>
+<div class="alert" id="humAlert">High Humidity Alert</div>
+</div>
 
-<p>Temperature: <span id="temp">--</span></p>
-<p>Humidity: <span id="hum">--</span></p>
-<p>Air Quality: <span id="air">--</span></p>
+<div class="chartBox">
+<canvas id="airChart"></canvas>
+<div class="alert" id="airAlert">Poor Air Quality Alert</div>
+</div>
+
+</div>
 
 <script>
 
 const clientId = "dashboard_" + Math.random().toString(16).substr(2,8);
 
-const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
-    clientId: clientId
+const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt",{
+clientId:clientId
 });
 
-client.on("connect", function () {
-    console.log("Connected to MQTT");
+client.on("connect",()=>{
+console.log("Connected to MQTT");
 });
 
-document.getElementById("tempCheck").addEventListener("change", function() {
-    if(this.checked){
-        client.subscribe("iot/env/temperature");
-    } else {
-        client.unsubscribe("iot/env/temperature");
-    }
+document.getElementById("tempCheck").onchange=function(){
+if(this.checked){
+client.subscribe("iot/env/temperature");
+}else{
+client.unsubscribe("iot/env/temperature");
+}
+};
+
+document.getElementById("humCheck").onchange=function(){
+if(this.checked){
+client.subscribe("iot/env/humidity");
+}else{
+client.unsubscribe("iot/env/humidity");
+}
+};
+
+document.getElementById("airCheck").onchange=function(){
+if(this.checked){
+client.subscribe("iot/env/air");
+}else{
+client.unsubscribe("iot/env/air");
+}
+};
+
+const tempChart = new Chart(document.getElementById("tempChart"),{
+type:"line",
+data:{labels:[],datasets:[{label:"Temperature °C",data:[],borderColor:"red"}]}
 });
 
-document.getElementById("humCheck").addEventListener("change", function() {
-    if(this.checked){
-        client.subscribe("iot/env/humidity");
-    } else {
-        client.unsubscribe("iot/env/humidity");
-    }
+const humChart = new Chart(document.getElementById("humChart"),{
+type:"line",
+data:{labels:[],datasets:[{label:"Humidity %",data:[],borderColor:"blue"}]}
 });
 
-document.getElementById("airCheck").addEventListener("change", function() {
-    if(this.checked){
-        client.subscribe("iot/env/air");
-    } else {
-        client.unsubscribe("iot/env/air");
-    }
+const airChart = new Chart(document.getElementById("airChart"),{
+type:"line",
+data:{labels:[],datasets:[{label:"Air Quality",data:[],borderColor:"green"}]}
 });
 
-client.on("message", function(topic, message){
+function updateChart(chart,value){
 
-    const value = message.toString();
+const time=new Date().toLocaleTimeString();
 
-    if(topic === "iot/env/temperature"){
-        document.getElementById("temp").innerText = value + " °C";
-    }
+chart.data.labels.push(time);
+chart.data.datasets[0].data.push(value);
 
-    if(topic === "iot/env/humidity"){
-        document.getElementById("hum").innerText = value + " %";
-    }
+if(chart.data.labels.length>20){
+chart.data.labels.shift();
+chart.data.datasets[0].data.shift();
+}
 
-    if(topic === "iot/env/air"){
-        document.getElementById("air").innerText = value;
-    }
+chart.update();
+}
+
+client.on("message",(topic,message)=>{
+
+const value=parseFloat(message.toString());
+
+if(topic==="iot/env/temperature"){
+updateChart(tempChart,value);
+
+if(value>35){
+document.getElementById("tempAlert").style.display="block";
+}else{
+document.getElementById("tempAlert").style.display="none";
+}
+}
+
+if(topic==="iot/env/humidity"){
+updateChart(humChart,value);
+
+if(value>80){
+document.getElementById("humAlert").style.display="block";
+}else{
+document.getElementById("humAlert").style.display="none";
+}
+}
+
+if(topic==="iot/env/air"){
+updateChart(airChart,value);
+
+if(value>900){
+document.getElementById("airAlert").style.display="block";
+}else{
+document.getElementById("airAlert").style.display="none";
+}
+}
 
 });
 
