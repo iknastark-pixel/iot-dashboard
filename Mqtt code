@@ -1,0 +1,122 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <DHT.h>
+
+#define DHTPIN 4
+#define DHTTYPE DHT11
+#define AIR_SENSOR 34
+
+DHT dht(DHTPIN, DHTTYPE);
+
+const char* ssid = "Krisszy";
+const char* password = "nothing1";
+
+const char* mqtt_server = "broker.emqx.io";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+unsigned long lastMsg = 0;
+
+void connectWiFi() {
+
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.println("WiFi connected");
+}
+
+void connectMQTT() {
+
+  while (!client.connected()) {
+
+    Serial.print("Connecting to MQTT broker... ");
+
+    if (client.connect("ESP32_ENV_SENSOR")) {
+
+      Serial.println("MQTT connected");
+
+    } else {
+
+      Serial.print("Failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" retrying in 3 seconds");
+
+      delay(3000);
+    }
+  }
+}
+
+void setup() {
+
+  Serial.begin(115200);
+  dht.begin();
+
+  connectWiFi();
+
+  client.setServer(mqtt_server, 1883);
+}
+
+void loop() {
+
+  // Reconnect WiFi if lost
+  if (WiFi.status() != WL_CONNECTED) {
+
+    Serial.println("WiFi lost. Reconnecting...");
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
+
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+
+    Serial.println();
+    Serial.println("WiFi reconnected");
+  }
+
+  // Reconnect MQTT if lost
+  if (!client.connected()) {
+    connectMQTT();
+  }
+
+  client.loop();
+
+  unsigned long now = millis();
+
+  if (now - lastMsg > 5000) {
+
+    lastMsg = now;
+
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    int air = analogRead(AIR_SENSOR);
+
+    if (isnan(temperature) || isnan(humidity)) {
+      Serial.println("DHT sensor read error");
+      return;
+    }
+
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.print(" °C | Humidity: ");
+    Serial.print(humidity);
+    Serial.print(" % | Air Quality: ");
+    Serial.println(air);
+
+    client.publish("iot/env/temperature", String(temperature).c_str());
+    client.publish("iot/env/humidity", String(humidity).c_str());
+    client.publish("iot/env/air", String(air).c_str());
+
+    Serial.println("Data Published to all topics");
+    Serial.println("--------------------------------");
+  }
+}
+
+
